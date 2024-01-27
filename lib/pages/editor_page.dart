@@ -1,12 +1,23 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
-class MarkdownEditorPage extends StatelessWidget {
-  final File file;
-
-  MarkdownEditorPage(this.file);
+class EditPage extends StatefulWidget {
+  const EditPage({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold();
+  State<EditPage> createState() => _EditPageState();
+}
+
+class _EditPageState extends State<EditPage> {
+  TextEditingController _titleController = TextEditingController();
+  TextEditingController _contentController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold();
+  }
 }
