@@ -1,10 +1,12 @@
 class Note {
-  String relativePath;
+  String absPath;
+  String fileName;
   String preview;
   DateTime modifiedTime;
 
   Note({
-    required this.relativePath,
+    required this.absPath,
+    required this.fileName,
     required this.preview,
     required this.modifiedTime,
   });

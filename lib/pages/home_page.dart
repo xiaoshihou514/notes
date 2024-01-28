@@ -4,10 +4,8 @@ import 'dart:io';
 import 'package:android_path_provider/android_path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:notes/colors.dart';
 import 'package:notes/notes.dart';
-
-import 'editor_page.dart';
+import 'package:notes/pages/preview_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,13 +21,10 @@ class _HomePageState extends State<HomePage> {
   _HomePageState();
 
   void onSearchTextChanged(String searchText) {
-    // TODO
     setState(() {
       shownNotes = allNotes
           .where((note) =>
-              note.relativePath
-                  .toLowerCase()
-                  .contains(searchText.toLowerCase()) ||
+              note.fileName.toLowerCase().contains(searchText.toLowerCase()) ||
               note.preview.toLowerCase().contains(searchText.toLowerCase()))
           .toList();
     });
@@ -50,32 +45,39 @@ class _HomePageState extends State<HomePage> {
 
   Future<List<Note>> getNotes() async {
     final documentsPath = await AndroidPathProvider.documentsPath;
-    final files = await Directory(documentsPath).list(recursive: true).toList();
-    return await Future.wait(
-        files.whereType<File>().toList().map((File f) async {
+    final notesPath = "$documentsPath/notes";
+    final files = await Directory(notesPath).list(recursive: true).toList();
+    final notes =
+        await Future.wait(files.whereType<File>().toList().map((File f) async {
       final lines = f
           .openRead()
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .take(5);
+      final path = f.path;
+      final temp = path.split("/").last;
 
       return Note(
-        relativePath: f.path.replaceAll(documentsPath, ""),
+        absPath: path,
+        fileName: temp.substring(0, temp.length - 3), // remove .md postfix
         preview: await lines.join("\n"),
         modifiedTime: f.lastModifiedSync(),
       );
     }).toList());
+    notes.sort((n1, n2) => n2.modifiedTime.compareTo(n1.modifiedTime));
+    return notes;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         backgroundColor: Colors.grey.shade900,
-        body: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 70, 16, 0),
-            child: Column(children: [
-              // search panel
-              TextField(
+        body: Column(
+          children: [
+            // search panel
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
+              child: TextField(
                 onChanged: onSearchTextChanged,
                 style: const TextStyle(fontSize: 16, color: fg),
                 decoration: InputDecoration(
@@ -88,68 +90,86 @@ class _HomePageState extends State<HomePage> {
                   fillColor: Colors.grey.shade800,
                   filled: true,
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: Colors.transparent),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: Colors.transparent),
                   ),
                 ),
               ),
-              // list of notes
-              ListView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.only(top: 30),
-                  itemCount: shownNotes.length,
-                  itemBuilder: (ctx, idx) {
-                    return Card(
-                        margin: const EdgeInsets.only(bottom: 20),
-                        color: Colors.blueGrey.shade900,
-                        child: ListTile(
-                          onTap: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (BuildContext context) => EditPage(),
+            ),
+            Expanded(
+              child: Column(children: [
+                // list of notes
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                        top: 0, left: 16, right: 16, bottom: 0),
+                    child: ListView.builder(
+                        itemCount: shownNotes.length,
+                        itemBuilder: (ctx, idx) {
+                          return Container(
+                              margin: const EdgeInsets.only(bottom: 15),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.white54,
+                                ),
+                                borderRadius:
+                                    const BorderRadius.all(Radius.circular(8)),
                               ),
-                            );
-                            if (result != null) {
-                              // TODO
-                            }
-                          },
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              'Edited: ${DateFormat('yyyy MMM d, h:mm a').format(shownNotes[idx].modifiedTime)}',
-                              style: const TextStyle(
-                                  fontSize: 10,
-                                  fontStyle: FontStyle.italic,
-                                  color: Colors.white54),
-                            ),
-                          ),
-                          title: RichText(
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              text: TextSpan(
-                                  text: '${shownNotes[idx].relativePath}\n',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      height: 1.5),
-                                  children: [
-                                    TextSpan(
-                                      text: shownNotes[idx].preview,
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontWeight: FontWeight.normal,
-                                          fontSize: 14,
-                                          height: 1.5),
-                                    )
-                                  ])),
-                        ));
-                  })
-            ])));
+                              child: ListTile(
+                                onTap: () async {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    PageRouteBuilder(
+                                      pageBuilder:
+                                          (context, animation1, animation2) =>
+                                              MarkdownPreviewPage(
+                                        path: shownNotes[idx].absPath,
+                                        fileName: shownNotes[idx].fileName,
+                                      ),
+                                      transitionDuration: Duration.zero,
+                                      reverseTransitionDuration: Duration.zero,
+                                    ),
+                                  );
+                                },
+                                title: RichText(
+                                    maxLines: 5,
+                                    overflow: TextOverflow.ellipsis,
+                                    text: TextSpan(
+                                        text: '${shownNotes[idx].fileName}\n',
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                            height: 1.5),
+                                        children: [
+                                          TextSpan(
+                                            text:
+                                                "${DateFormat('yyyy MMM d').format(shownNotes[idx].modifiedTime)}\n",
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                fontStyle: FontStyle.italic,
+                                                color: Colors.white54),
+                                          ),
+                                          TextSpan(
+                                            text: shownNotes[idx].preview,
+                                            style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontWeight: FontWeight.normal,
+                                                fontSize: 14,
+                                                height: 1.5),
+                                          )
+                                        ])),
+                              ));
+                        }),
+                  ),
+                )
+              ]),
+            ),
+          ],
+        ));
   }
 }
