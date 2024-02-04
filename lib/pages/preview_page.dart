@@ -24,15 +24,7 @@ class MarkdownPreviewPage extends StatelessWidget {
       appBar: AppBar(
           leading: IconButton(
               onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  PageRouteBuilder(
-                    pageBuilder: (context, animation1, animation2) =>
-                        const HomePage(),
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero,
-                  ),
-                );
+                Navigator.pop(context, false);
               },
               padding: const EdgeInsets.all(0),
               icon: Container(
@@ -82,16 +74,16 @@ class MarkdownPreviewPage extends StatelessWidget {
           backgroundColor: Colors.white54,
           foregroundColor: Colors.black,
           child: const Icon(Icons.edit_rounded),
-          onPressed: () {
-            // Navigator.pop and Navigator.push would result in animations
-            Navigator.pushReplacement(
+          onPressed: () async {
+            await Navigator.push(
               context,
               PageRouteBuilder(
                 pageBuilder: (context, animation1, animation2) =>
-                    EditPage(path: path, fileName: fileName),
+                    EditPage(absPath: path, fileName: fileName),
                 transitionDuration: Duration.zero,
                 reverseTransitionDuration: Duration.zero,
               ),
             );
+            Navigator.pop(context, true);
           }));
 }

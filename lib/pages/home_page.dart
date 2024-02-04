@@ -17,6 +17,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<Note> allNotes = [];
   List<Note> shownNotes = [];
+  String notesPath = "";
 
   _HomePageState();
 
@@ -45,7 +46,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<List<Note>> getNotes() async {
     final documentsPath = await AndroidPathProvider.documentsPath;
-    final notesPath = "$documentsPath/notes";
+    notesPath = "$documentsPath/notes";
     final files = await Directory(notesPath).list(recursive: true).toList();
     final notes =
         await Future.wait(files.whereType<File>().toList().map((File f) async {
@@ -76,7 +77,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             // search panel
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
+              padding: const EdgeInsets.fromLTRB(14, 50, 18, 12),
               child: TextField(
                 onChanged: onSearchTextChanged,
                 style: const TextStyle(fontSize: 16, color: fg),
@@ -110,60 +111,133 @@ class _HomePageState extends State<HomePage> {
                     child: ListView.builder(
                         itemCount: shownNotes.length,
                         itemBuilder: (ctx, idx) {
-                          return Container(
-                              margin: const EdgeInsets.only(bottom: 15),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.white54,
-                                ),
-                                borderRadius:
-                                    const BorderRadius.all(Radius.circular(8)),
+                          return Dismissible(
+                            key: UniqueKey(),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              color: Colors.red.shade300,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              alignment: Alignment.centerRight,
+                              child: const Icon(
+                                Icons.delete,
+                                color: Colors.white,
                               ),
-                              child: ListTile(
-                                onTap: () async {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    PageRouteBuilder(
-                                      pageBuilder:
-                                          (context, animation1, animation2) =>
-                                              MarkdownPreviewPage(
-                                        path: shownNotes[idx].absPath,
-                                        fileName: shownNotes[idx].fileName,
-                                      ),
-                                      transitionDuration: Duration.zero,
-                                      reverseTransitionDuration: Duration.zero,
-                                    ),
-                                  );
-                                },
-                                title: RichText(
-                                    maxLines: 5,
-                                    overflow: TextOverflow.ellipsis,
-                                    text: TextSpan(
-                                        text: '${shownNotes[idx].fileName}\n',
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                            height: 1.5),
-                                        children: [
-                                          TextSpan(
-                                            text:
-                                                "${DateFormat('yyyy MMM d').format(shownNotes[idx].modifiedTime)}\n",
-                                            style: const TextStyle(
-                                                fontSize: 10,
-                                                fontStyle: FontStyle.italic,
-                                                color: Colors.white54),
+                            ),
+                            onDismissed: (direction) {
+                              final note = shownNotes.removeAt(idx);
+                              File(note.absPath).deleteSync();
+                            },
+                            confirmDismiss: (direction) async {
+                              bool dismiss = false;
+                              if (direction == DismissDirection.endToStart) {
+                                await showDialog(
+                                    context: context,
+                                    builder: (context) {
+                                      return AlertDialog(
+                                        title: const Text(
+                                          "Deleting this note?",
+                                          style: TextStyle(
+                                            color: Colors.white70,
                                           ),
-                                          TextSpan(
-                                            text: shownNotes[idx].preview,
-                                            style: const TextStyle(
+                                        ),
+                                        backgroundColor: Colors.grey.shade900,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8.0),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () {
+                                              dismiss = true;
+                                              Navigator.pop(context);
+                                            },
+                                            child: const Text(
+                                              "Yes",
+                                              style: TextStyle(
                                                 color: Colors.white70,
-                                                fontWeight: FontWeight.normal,
-                                                fontSize: 14,
-                                                height: 1.5),
-                                          )
-                                        ])),
-                              ));
+                                              ),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              dismiss = false;
+                                              Navigator.pop(context);
+                                            },
+                                            child: const Text(
+                                              "No",
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    });
+                              }
+                              return dismiss;
+                            },
+                            child: Container(
+                                margin: const EdgeInsets.only(bottom: 15),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.white54,
+                                  ),
+                                  borderRadius: const BorderRadius.all(
+                                      Radius.circular(8)),
+                                ),
+                                child: ListTile(
+                                  onTap: () async => Navigator.push(
+                                      context,
+                                      PageRouteBuilder(
+                                        pageBuilder:
+                                            (context, animation1, animation2) =>
+                                                MarkdownPreviewPage(
+                                          path: shownNotes[idx].absPath,
+                                          fileName: shownNotes[idx].fileName,
+                                        ),
+                                        transitionDuration: Duration.zero,
+                                        reverseTransitionDuration:
+                                            Duration.zero,
+                                      )).then((refresh) {
+                                    if (refresh != null && refresh) {
+                                      setState(() {
+                                        final current =
+                                            shownNotes.removeAt(idx);
+                                        shownNotes.insert(0, current);
+                                      });
+                                    }
+                                  }),
+                                  title: RichText(
+                                      maxLines: 5,
+                                      overflow: TextOverflow.ellipsis,
+                                      text: TextSpan(
+                                          text: '${shownNotes[idx].fileName}\n',
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                              height: 1.5),
+                                          children: [
+                                            TextSpan(
+                                              text:
+                                                  "${DateFormat('yyyy MMM d').format(shownNotes[idx].modifiedTime)}\n",
+                                              style: const TextStyle(
+                                                  fontSize: 10,
+                                                  fontStyle: FontStyle.italic,
+                                                  color: Colors.white54),
+                                            ),
+                                            TextSpan(
+                                              text: shownNotes[idx].preview,
+                                              style: const TextStyle(
+                                                  color: Colors.white70,
+                                                  fontWeight: FontWeight.normal,
+                                                  fontSize: 14,
+                                                  height: 1.5),
+                                            )
+                                          ])),
+                                )),
+                          );
                         }),
                   ),
                 )
