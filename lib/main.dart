@@ -5,10 +5,13 @@ import 'pages/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  var status = await Permission.camera.status;
-  if (status.isDenied) {
+
+  var status = await Permission.storage.status;
+  if (!status.isGranted) {
     await Permission.storage.onGrantedCallback(() async {
-      runApp(const NotesApp());
+      await Permission.manageExternalStorage.onGrantedCallback(() async {
+        runApp(const NotesApp());
+      }).request();
     }).request();
   } else {
     runApp(const NotesApp());

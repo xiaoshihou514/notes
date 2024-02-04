@@ -48,23 +48,31 @@ class _HomePageState extends State<HomePage> {
     final documentsPath = await AndroidPathProvider.documentsPath;
     notesPath = "$documentsPath/notes";
     final files = await Directory(notesPath).list(recursive: true).toList();
-    final notes =
-        await Future.wait(files.whereType<File>().toList().map((File f) async {
-      final lines = f
-          .openRead()
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .take(5);
-      final path = f.path;
-      final temp = path.split("/").last;
+    final notes = await Future.wait(files
+        .whereType<File>()
+        .where((f) {
+          final splits = f.path.split("/");
+          return splits.every((component) => !component.startsWith(".")) &&
+              splits.last.endsWith("md");
+        })
+        .toList()
+        .map((File f) async {
+          final lines = f
+              .openRead()
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())
+              .take(5);
+          final path = f.path;
+          final temp = path.split("/").last;
 
-      return Note(
-        absPath: path,
-        fileName: temp.substring(0, temp.length - 3), // remove .md postfix
-        preview: await lines.join("\n"),
-        modifiedTime: f.lastModifiedSync(),
-      );
-    }).toList());
+          return Note(
+            absPath: path,
+            fileName: temp.substring(0, temp.length - 3), // remove .md postfix
+            preview: await lines.join("\n"),
+            modifiedTime: f.lastModifiedSync(),
+          );
+        })
+        .toList());
     notes.sort((n1, n2) => n2.modifiedTime.compareTo(n1.modifiedTime));
     return notes;
   }
